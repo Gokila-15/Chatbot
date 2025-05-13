@@ -44,3 +44,40 @@ def predict_intent(user_input):
         return prediction
     except:
         return None
+
+# Route for home page
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+# Route for handling chat requests
+@app.route("/chat", methods=["POST"])
+def chat():
+    user_message = request.form["message"]
+
+    # Check for invalid input
+    if not user_message.strip():
+        return jsonify({"response": "Please enter a valid message."})
+
+    if re.search(r"[^a-zA-Z0-9\s\?\.\!']", user_message):
+        return jsonify({"response": "You're entering wrong characters. Please avoid special symbols."})
+
+    # Predict intent
+    intent_tag = predict_intent(user_message)
+
+    # Return matching response
+    if intent_tag:
+        for intent in data["intents"]:
+            if intent["tag"] == intent_tag:
+                response = random.choice(intent["responses"])
+                break
+        else:
+            response = "Sorry, I couldn't find a suitable response."
+    else:
+        response = "I'm not sure how to respond to that. Try rephrasing your message."
+
+    return jsonify({"response": response})
+
+# Run the app
+if _name_ == "_main_":
+    app.run(debug=True, host="0.0.0.0", port=5000)
