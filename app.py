@@ -32,7 +32,7 @@ model = MultinomialNB()
 model.fit(X_train_tfidf, y_train)
 
 # Flask app setup
-app = Flask(_name_)
+app = Flask(__name__)
 
 # Predict the intent of the user input
 def predict_intent(user_input):
@@ -79,5 +79,5 @@ def chat():
     return jsonify({"response": response})
 
 # Run the app
-if _name_ == "_main_":
+if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
