@@ -6,78 +6,66 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.model_selection import train_test_split
 
-# Load intents from the JSON file
+# Load intents JSON
 with open("intents.json", encoding='utf-8') as file:
     data = json.load(file)
 
-# Prepare the dataset
+# Prepare data
 texts = []
 labels = []
-
 for intent in data["intents"]:
     for pattern in intent["patterns"]:
         texts.append(pattern.lower())
         labels.append(intent["tag"])
 
-# Split the dataset
+# Split and vectorize
 X_train, X_test, y_train, y_test = train_test_split(texts, labels, test_size=0.2, random_state=42)
+vectorizer = TfidfVectorizer(stop_words="english")
+X_train_vec = vectorizer.fit_transform(X_train)
 
-# Vectorize the patterns
-vectorizer = TfidfVectorizer(stop_words="english", max_features=5000)
-X_train_tfidf = vectorizer.fit_transform(X_train)
-X_test_tfidf = vectorizer.transform(X_test)
-
-# Train the classifier
+# Train model
 model = MultinomialNB()
-model.fit(X_train_tfidf, y_train)
+model.fit(X_train_vec, y_train)
 
-# Flask app setup
+# Flask setup
 app = Flask(__name__)
 
-# Predict the intent of the user input
+# Prediction function
 def predict_intent(user_input):
-    if not user_input.strip():
-        return None
     try:
-        input_tfidf = vectorizer.transform([user_input.lower()])
-        prediction = model.predict(input_tfidf)[0]
-        return prediction
+        vec = vectorizer.transform([user_input.lower()])
+        return model.predict(vec)[0]
     except:
         return None
 
-# Route for home page
 @app.route("/")
-def home():
+def index():
     return render_template("index.html")
 
-# Route for handling chat requests
 @app.route("/chat", methods=["POST"])
 def chat():
     user_message = request.form["message"]
+    print("User message:", user_message)
 
-    # Check for invalid input
     if not user_message.strip():
         return jsonify({"response": "Please enter a valid message."})
 
     if re.search(r"[^a-zA-Z0-9\s\?\.\!']", user_message):
         return jsonify({"response": "You're entering wrong characters. Please avoid special symbols."})
 
-    # Predict intent
-    intent_tag = predict_intent(user_message)
+    intent = predict_intent(user_message)
+    print("Predicted intent:", intent)
 
-    # Return matching response
-    if intent_tag:
-        for intent in data["intents"]:
-            if intent["tag"] == intent_tag:
-                response = random.choice(intent["responses"])
-                break
-        else:
-            response = "Sorry, I couldn't find a suitable response."
-    else:
-        response = "I'm not sure how to respond to that. Try rephrasing your message."
+    if intent:
+        for item in data["intents"]:
+            if item["tag"] == intent:
+                response = random.choice(item["responses"])
+                print("Bot response:", response)
+                return jsonify({"response": response})
 
-    return jsonify({"response": response})
+    # If no match found or model fails
+    print("Fallback used.")
+    return jsonify({"response": "Sorry, I didn't understand that. Can you try rephrasing?"})
 
-# Run the app
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=True)
